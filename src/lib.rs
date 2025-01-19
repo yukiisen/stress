@@ -128,7 +128,7 @@ fn extract_ext <'a> (path: &'a str) -> &'a str {
 
 // A very useless test...
 #[cfg(test)]
-mod HelperTests {
+mod helper_tests {
     use super::*;
     #[test]
     fn extract_extention_helper () {
