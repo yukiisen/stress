@@ -1,4 +1,4 @@
-use Stress::*;
+use stress::*;
 
 fn main () {
     let mut server = HTTPServer::new();

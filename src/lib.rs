@@ -5,14 +5,17 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 mod pool;
-mod request;
-mod response;
+pub mod request;
+pub mod response;
+pub mod status_codes;
+pub mod mime_types;
 
 pub struct HTTPServer {
-    addr: Option<&'static str>,
+    pub addr: Option<&'static str>,
     worker_count: usize,
     error_handler: Box<dyn Fn(Error)>,
-    status_codes: Rc<HashMap<u16, String>>
+    status_codes: Rc<HashMap<u16, String>>,
+    mime_map: Rc<HashMap<&'static str, &'static str>>
 }
 
 impl HTTPServer {
@@ -26,8 +29,8 @@ impl HTTPServer {
             addr: None,
             worker_count: 1,
             error_handler: Box::new(|_e| ()),
-            status_codes: Rc::new(import_status_messages("./data/status_codes.json")
-                            .expect("Status messages file not found!"))
+            status_codes: Rc::new(import_status_messages()),
+            mime_map: Rc::new(import_mime_map())
         }
     }
 
@@ -39,7 +42,7 @@ impl HTTPServer {
     /// ## Returns
     /// a result with either `Ok(())` or some error
     /// 
-    pub fn listen (&mut self, addr: &'static str) -> Result<(), std::io::Error> {
+    pub fn listen (&mut self, addr: &'static str) -> Result<(), Error> {
         let listener = TcpListener::bind(addr)?;
         self.addr = Some(addr);
 
@@ -54,7 +57,12 @@ impl HTTPServer {
     fn on_connection (&mut self, stream: TcpStream) {
         let stream = Rc::new(RefCell::new(stream));
 
-        let mut res =  response::Response::new(200, Rc::downgrade(&self.status_codes), stream.clone());
+        let mut res =  response::Response::new(
+            200, 
+            Rc::downgrade(&self.status_codes), 
+            stream.clone(),
+            Rc::downgrade(&self.mime_map)
+        );
         let req = match request::Request::build(stream.clone()) {
             Ok(data) => data,
             Err(error) => {
@@ -99,23 +107,34 @@ fn extract_option <T> (op: Option<T>) -> Result<T, Error> {
     }
 }
 
-fn import_status_messages (path: &str) -> Result<HashMap<u16, String>, Error> {
+fn import_status_messages () -> HashMap<u16, String> {
     let mut map = HashMap::new();
 
-    let data = std::fs::read_to_string(path)?
-        .replace("{", "")
-        .replace("}", "")
-        .replace("\"", "")
-        .replace(",", "");
-    
-    let lines: Vec<Option<(&str, &str)>> = data.lines()
-        .map(|line| line.split_once(":"))
-        .collect();
-
-    for line in lines {
-        let line = if let Some(text) = line { text } else { continue; };
-        map.insert(line.0.trim().parse::<u16>().expect("Key must be a number"),line.1.trim().to_string());
+    for (key, val) in status_codes::StatusMap::get_map().iter() {
+       map.insert(key.parse::<u16>().unwrap(), val.to_string());
     }
-    
-    Ok(map)
+
+    map
+}
+
+fn import_mime_map () -> HashMap<&'static str, &'static str> {
+    mime_types::MimeTypes::get_map()
+}
+
+fn extract_ext <'a> (path: &'a str) -> &'a str {
+    path.split(".").collect::<Vec<&str>>().pop().unwrap_or_default()
+}
+
+
+// A very useless test...
+#[cfg(test)]
+mod HelperTests {
+    use super::*;
+    #[test]
+    fn extract_extention_helper () {
+        assert_eq!(extract_ext("./main.rs"), "rs");
+        assert_eq!(extract_ext(".script.sh"), "sh");
+        assert_eq!(extract_ext("file.md"), "md");
+        assert_eq!(extract_ext("poi.nte.d.file.buzz"), "buzz");
+    }
 }

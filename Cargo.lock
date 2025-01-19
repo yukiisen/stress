@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "Stress"
+name = "stress"
 version = "0.1.0"
