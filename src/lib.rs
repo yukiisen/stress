@@ -4,6 +4,7 @@ use std::net::TcpListener;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::sync::Arc;
+use std::sync::RwLock;
 
 mod pool;
 pub mod request;
@@ -21,7 +22,6 @@ type Routes = HashMap<&'static str, Vec<Route>>;
 
 pub struct HTTPServer {
     pub addr: Option<&'static str>,
-    worker_count: usize,
     thread_pool: ThreadPool,
     status_codes: Rc<HashMap<u16, String>>,
     mime_map: Rc<HashMap<&'static str, &'static str>>,
@@ -29,7 +29,7 @@ pub struct HTTPServer {
     /// Uses a Hashmap to store the routes based on their method.
     /// 
     // consider using a tree data structure for pathnames later.
-    routes: Arc<Routes>
+    routes: Arc<RwLock<Routes>>
 }
 
 
@@ -42,17 +42,16 @@ impl HTTPServer {
     pub fn new (workers: usize) -> Self {
         HTTPServer {
             addr: None,
-            worker_count: workers,
             thread_pool: ThreadPool::new(workers),
             status_codes: Rc::new(import_status_messages()),
             mime_map: Rc::new(import_mime_map()),
-            routes: Arc::new(HashMap::from([
+            routes: Arc::new(RwLock::new(HashMap::from([
                 ("GET", Vec::new()),
                 ("POST", Vec::new()),
                 ("PUT", Vec::new()),
                 ("DELETE", Vec::new()),
                 ("PATCH", Vec::new()),
-            ]))
+            ])))
         }
     }
 
@@ -71,42 +70,13 @@ impl HTTPServer {
         for connection in listener.incoming() {
             let stream = connection?;
 
-            self.thread_pool.execute(stream, self.routes.clone());
+            self.thread_pool.execute(stream, self.routes.clone()).unwrap();
         }
 
         Ok(())
     }
 
-    /// this function is passed to the thread pool and is responsible for handlind the whole http loop.
-    /// # Deprecated.
-    /* fn on_connection (&mut self, stream: TcpStream) {
-        let stream = Rc::new(RefCell::new(stream));
-
-        let mut res =  Response::new(
-            200, 
-            Rc::downgrade(&self.status_codes), 
-            stream.clone(),
-            Rc::downgrade(&self.mime_map)
-        );
-
-        let req = match Request::build(stream.clone()) {
-            Ok(data) => data,
-            Err(error) => {
-                (self.error_handler)(error);
-                return;
-            }
-        };
-
-        println!("{req:#?}");
-        
-        res.set_header("content-type", "text/html").unwrap();
-        res.send_file("./index.html").unwrap();
-        
-        println!("{res:#?}");
-    } */
-
-
-    // Route Definers.
+    // Route Initializers..
 
     ///
     /// Defines a route with the specified `method`, `path` and `handler`.
@@ -115,7 +85,7 @@ impl HTTPServer {
     /// 
     /// instead use `get`, `post`, `put` or `delete`, based on your target method.
     pub fn register (&mut self, method: &'static str, path: &'static str, handler: RouteHandler) {
-        self.routes.get_mut(method.to_uppercase().as_str()).unwrap()
+        self.routes.write().unwrap().get_mut(method.to_uppercase().as_str()).unwrap()
         .push(
             Route {
                 handler,
@@ -129,7 +99,7 @@ impl HTTPServer {
     /// 
     /// global middlewares are always excuted before any route handlers.
     pub fn middleware (&mut self, path: &'static str, handler: RouteHandler) {
-        self.routes.get_mut("global").unwrap().push(
+        self.routes.write().unwrap().get_mut("global").unwrap().push(
             Route {
                 handler,
                 path,
@@ -174,13 +144,6 @@ impl HTTPServer {
     /// 
     pub fn on_error <F> (&mut self, f: ErrorHandler) {
         self.thread_pool.error_handler = f;
-    }
-
-    ///
-    /// How much threads to spawn, default to `1`
-    ///
-    pub fn set_workers (&mut self, amount: usize) {
-        self.worker_count = amount;
     }
 }
 

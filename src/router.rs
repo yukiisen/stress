@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub type RouteResult = Result<bool, Box<dyn Error>>;
-pub type RouteHandler = Box<dyn Fn(&mut Request, &mut Response) -> RouteResult + 'static + Send>;
+pub type RouteHandler = Box<dyn Fn(&mut Request, &mut Response) -> RouteResult + 'static + Send + Sync>;
 
 pub struct Route {
     pub handler: RouteHandler,

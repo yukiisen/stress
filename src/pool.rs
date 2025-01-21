@@ -19,28 +19,32 @@ pub type ErrorHandler = Arc<dyn Fn(err) + 'static + Send>;
 #[allow(unused)]
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    transmitter: Sender<(TcpStream, Arc<Routes>)>,
+    transmitter: Sender<(TcpStream, Arc<RwLock<Routes>>)>,
+    reciever: Arc<Mutex<Receiver<(TcpStream, Arc<RwLock<Routes>>)>>>,
     pub error_handler: ErrorHandler,
 }
 impl ThreadPool {
     pub fn new (worker_count: usize) -> Self {
-        let mut workers = vec![];
+        let workers = Vec::with_capacity(worker_count);
         let (transmitter, reciever) = mpsc::channel();
         let recv = Arc::new(Mutex::new(reciever));
 
-        for _ in [0..worker_count] {
-            workers.push(Worker::new(recv.clone()));
-        }
-
         ThreadPool {
             transmitter,
+            reciever: recv,
             workers,
             error_handler: Arc::new(|e| eprintln!("{e}"))
         }
     }
 
+    pub fn init (&mut self) {
+        for _ in [0..self.workers.capacity()] {
+            self.workers.push(Worker::new(self.reciever.clone(), self.error_handler.clone()));
+        }
+    }
 
-    pub fn execute (&self, stream: TcpStream, handlers: Arc<Routes>) -> Result<(), Box<dyn Error>> {
+
+    pub fn execute (&self, stream: TcpStream, handlers: Arc<RwLock<Routes>>) -> Result<(), Box<dyn Error>> {
         self.transmitter.send((stream, handlers))?;
 
         Ok(())
@@ -52,11 +56,11 @@ struct Worker {
 }
 
 impl Worker {
-    pub fn new (recv: Arc<Mutex<Receiver<(TcpStream, Arc<RwLock<Routes>>)>>>) -> Self {
+    pub fn new (recv: Arc<Mutex<Receiver<(TcpStream, Arc<RwLock<Routes>>)>>>, error_handler: ErrorHandler) -> Self {
         let thread = thread::spawn(move || {
             loop {
-                let (_stream, _handlers) = recv.lock().unwrap().recv().unwrap();
-                /*let stream = Rc::new(RefCell::new(stream));
+                let (stream, handlers) = recv.lock().unwrap().recv().unwrap();
+                let stream = Rc::new(RefCell::new(stream));
 
                 let mut res = Response::new(
                     200, 
@@ -71,7 +75,7 @@ impl Worker {
                         error_handler(error);
                         return;
                     }
-                };*/
+                };
             }
         });
 
