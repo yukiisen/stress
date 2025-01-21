@@ -21,7 +21,9 @@ pub struct Request {
 
 impl Request {
     /// Builds a `Request` object from a connection stream.
-    pub fn build (stream: Rc<RefCell<TcpStream>>) -> Result<Self, err> {
+    pub fn build (
+        stream: Rc<RefCell<TcpStream>>
+    ) -> Result<Self, err> {
         
         let reader = BufReader::new(stream.borrow().try_clone()?);
         let ip = stream.borrow().peer_addr()?.ip();
