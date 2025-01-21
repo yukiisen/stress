@@ -1,12 +1,11 @@
+use stress::*;
 use request::Request;
 use response::Response;
-use route::RouteResult;
-use stress::*;
+use router::RouteResult;
 
 fn main () {
-    let mut server = HTTPServer::new();
-    server.set_workers(4);
-    server.get("/", std::rc::Rc::new(on_req));
+    let mut server = HTTPServer::new(1);
+    server.get("/", Box::new(on_req));
 
     server.listen("127.0.0.1:8080").unwrap();
 }

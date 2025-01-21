@@ -1,32 +1,37 @@
 use std::collections::HashMap;
 use std::io::{ Error, ErrorKind };
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::rc::Rc;
 use std::cell::RefCell;
-
-use request::Request;
-use response::Response;
-use route::{Route, RouteHandler};
+use std::sync::Arc;
 
 mod pool;
 pub mod request;
 pub mod response;
 pub mod status_codes;
 pub mod mime_types;
-pub mod route;
+pub mod router;
+
+use pool::{ErrorHandler, ThreadPool};
+use request::Request;
+use response::Response;
+use router::{Route, RouteHandler};
+
+type Routes = HashMap<&'static str, Vec<Route>>;
 
 pub struct HTTPServer {
     pub addr: Option<&'static str>,
     worker_count: usize,
-    error_handler: Box<dyn Fn(Error)>,
+    thread_pool: ThreadPool,
     status_codes: Rc<HashMap<u16, String>>,
     mime_map: Rc<HashMap<&'static str, &'static str>>,
     ///
     /// Uses a Hashmap to store the routes based on their method.
     /// 
-    /// consider using a tree data structure for pathnames later.
-    routes: HashMap<&'static str, RefCell<Vec<Route>>>
+    // consider using a tree data structure for pathnames later.
+    routes: Arc<Routes>
 }
+
 
 impl HTTPServer {
     ///
@@ -34,20 +39,20 @@ impl HTTPServer {
     /// 
     /// this doesn't listen for connections until you run the `listen` method.
     ///
-    pub fn new () -> Self {
+    pub fn new (workers: usize) -> Self {
         HTTPServer {
             addr: None,
-            worker_count: 1,
-            error_handler: Box::new(|_e| ()),
+            worker_count: workers,
+            thread_pool: ThreadPool::new(workers),
             status_codes: Rc::new(import_status_messages()),
             mime_map: Rc::new(import_mime_map()),
-            routes: HashMap::from([
-                ("GET", RefCell::new(Vec::new())),
-                ("POST", RefCell::new(Vec::new())),
-                ("PUT", RefCell::new(Vec::new())),
-                ("DELETE", RefCell::new(Vec::new())),
-                ("PATCH", RefCell::new(Vec::new())),
-            ])
+            routes: Arc::new(HashMap::from([
+                ("GET", Vec::new()),
+                ("POST", Vec::new()),
+                ("PUT", Vec::new()),
+                ("DELETE", Vec::new()),
+                ("PATCH", Vec::new()),
+            ]))
         }
     }
 
@@ -65,14 +70,16 @@ impl HTTPServer {
 
         for connection in listener.incoming() {
             let stream = connection?;
-            self.on_connection(stream);
+
+            self.thread_pool.execute(stream, self.routes.clone());
         }
 
         Ok(())
     }
 
     /// this function is passed to the thread pool and is responsible for handlind the whole http loop.
-    fn on_connection (&mut self, stream: TcpStream) {
+    /// # Deprecated.
+    /* fn on_connection (&mut self, stream: TcpStream) {
         let stream = Rc::new(RefCell::new(stream));
 
         let mut res =  Response::new(
@@ -96,7 +103,7 @@ impl HTTPServer {
         res.send_file("./index.html").unwrap();
         
         println!("{res:#?}");
-    }
+    } */
 
 
     // Route Definers.
@@ -107,9 +114,9 @@ impl HTTPServer {
     /// Not intended for use unless you want some custom functionality.
     /// 
     /// instead use `get`, `post`, `put` or `delete`, based on your target method.
-    pub fn register (&mut self, method: &'static str, path: &'static str, handler: RouteHandler)
-    {
-        self.routes.get(method.to_uppercase().as_str()).unwrap().borrow_mut().push(
+    pub fn register (&mut self, method: &'static str, path: &'static str, handler: RouteHandler) {
+        self.routes.get_mut(method.to_uppercase().as_str()).unwrap()
+        .push(
             Route {
                 handler,
                 path,
@@ -122,7 +129,7 @@ impl HTTPServer {
     /// 
     /// global middlewares are always excuted before any route handlers.
     pub fn middleware (&mut self, path: &'static str, handler: RouteHandler) {
-        self.routes.get("global").unwrap().borrow_mut().push(
+        self.routes.get_mut("global").unwrap().push(
             Route {
                 handler,
                 path,
@@ -165,11 +172,8 @@ impl HTTPServer {
     ///
     /// Sets an Error Handler if any error happens during req parsing.
     /// 
-    pub fn on_error <F> (&mut self, f: F)
-    where
-        F: Fn(Error) + 'static
-    {
-        self.error_handler = Box::new(f);
+    pub fn on_error <F> (&mut self, f: ErrorHandler) {
+        self.thread_pool.error_handler = f;
     }
 
     ///
