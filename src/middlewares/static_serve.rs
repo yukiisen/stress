@@ -1,4 +1,3 @@
-use std::fs;
 use std::path;
 
 use crate::router::RouteHandler;
@@ -9,18 +8,20 @@ pub fn serve_static(path: &'static str) -> RouteHandler {
         let target = path;
         let filepath = target.join(&req.path.strip_prefix("/").unwrap_or_else(|| "/"));
 
-        if filepath.starts_with(&target) {
-            if filepath.exists() {
-                let string_path = if let Some(path) = filepath.to_str() {
-                    path
-                } else {
-                    res.set_status(500).unwrap();
-                    res.send("internal server error").unwrap();
-                    return Ok(true);
-                };
+        if filepath.starts_with(&target) && filepath.exists() {
+            let string_path = if let Some(path) = filepath.to_str() {
+                path
+            } else {
+                res.set_status(500)?;
+                res.send("internal server error")?;
+                return Ok(true);
+            };
 
-                res.send_file(string_path).unwrap();
-            }
+            res.set_status(200)?;
+            res.send_file(string_path)?;
+        } else {
+            res.set_status(404)?;
+            res.send("File not found")?;
         }
         Ok(true)
     })
