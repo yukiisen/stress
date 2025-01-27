@@ -12,6 +12,11 @@ pub mod response;
 pub mod router;
 pub mod status_codes;
 
+/// Public module that contains built in middlewares for different purposes.
+///
+/// this will likely will stay almost empty for like forever.
+pub mod middlewares;
+
 use pool::{ErrorHandler, ThreadPool};
 use request::Request;
 use response::Response;
@@ -44,6 +49,7 @@ impl HTTPServer {
             status_codes: Arc::new(import_status_messages()),
             mime_map: Arc::new(import_mime_map()),
             routes: Arc::new(RwLock::new(HashMap::from([
+                ("errors", Vec::new()),
                 ("final", Vec::new()),
                 ("global", Vec::new()),
                 ("GET", Vec::new()),
@@ -117,11 +123,24 @@ impl HTTPServer {
             });
     }
 
-    pub fn last(&mut self, method: &'static str, path: &'static str, handler: RouteHandler) {
+    pub fn last(&mut self, path: &'static str, handler: RouteHandler) {
         self.routes
             .write()
             .unwrap()
             .get_mut("final")
+            .unwrap()
+            .push(Route {
+                handler,
+                path,
+                method: "*",
+            });
+    }
+
+    pub fn error_ware(&mut self, method: &'static str, path: &'static str, handler: RouteHandler) {
+        self.routes
+            .write()
+            .unwrap()
+            .get_mut("errors")
             .unwrap()
             .push(Route {
                 handler,
@@ -206,4 +225,3 @@ mod helper_tests {
         assert_eq!(extract_ext("poi.nte.d.file.buzz"), "buzz");
     }
 }
-
