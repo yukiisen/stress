@@ -11,6 +11,7 @@ use std::sync::RwLock;
 use std::thread;
 use thread::JoinHandle;
 
+use crate::controller;
 use crate::Request;
 use crate::Response;
 use crate::Routes;
@@ -43,7 +44,7 @@ impl ThreadPool {
         mime_map: Arc<HashMap<&'static str, &'static str>>,
         status_codes: Arc<HashMap<u16, String>>,
     ) {
-        for _ in [0..self.workers.capacity()] {
+        for _ in 0..self.workers.capacity() {
             self.workers.push(Worker::new(
                 self.reciever.clone(),
                 self.error_handler.clone(),
@@ -81,6 +82,7 @@ impl Worker {
             loop {
                 let (stream, handlers) = recv.lock().unwrap().recv().unwrap();
                 let stream = Rc::new(RefCell::new(stream));
+                let routes = handlers.read().unwrap();
 
                 let mut res = Response::new(
                     200,
@@ -89,7 +91,7 @@ impl Worker {
                     Arc::downgrade(&mime_map),
                 );
 
-                let _req = match Request::build(stream.clone()) {
+                let req = match Request::build(stream.clone()) {
                     Ok(data) => data,
                     Err(error) => {
                         on_error(error);
@@ -97,7 +99,7 @@ impl Worker {
                     }
                 };
 
-                res.send_file("./index.html").unwrap();
+                controller::handle_requests(req, res, routes);
             }
         });
 

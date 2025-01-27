@@ -4,6 +4,7 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use std::sync::RwLock;
 
+mod controller;
 pub mod mime_types;
 mod pool;
 pub mod request;
@@ -43,6 +44,7 @@ impl HTTPServer {
             status_codes: Arc::new(import_status_messages()),
             mime_map: Arc::new(import_mime_map()),
             routes: Arc::new(RwLock::new(HashMap::from([
+                ("global", Vec::new()),
                 ("GET", Vec::new()),
                 ("POST", Vec::new()),
                 ("PUT", Vec::new()),
