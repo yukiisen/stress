@@ -84,7 +84,7 @@ impl Worker {
                 let stream = Rc::new(RefCell::new(stream));
                 let routes = handlers.read().unwrap();
 
-                let mut res = Response::new(
+                let res = Response::new(
                     200,
                     Arc::downgrade(&status_codes),
                     stream.clone(),

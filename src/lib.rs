@@ -44,6 +44,7 @@ impl HTTPServer {
             status_codes: Arc::new(import_status_messages()),
             mime_map: Arc::new(import_mime_map()),
             routes: Arc::new(RwLock::new(HashMap::from([
+                ("final", Vec::new()),
                 ("global", Vec::new()),
                 ("GET", Vec::new()),
                 ("POST", Vec::new()),
@@ -113,6 +114,19 @@ impl HTTPServer {
                 handler,
                 path,
                 method: "*",
+            });
+    }
+
+    pub fn last(&mut self, method: &'static str, path: &'static str, handler: RouteHandler) {
+        self.routes
+            .write()
+            .unwrap()
+            .get_mut("final")
+            .unwrap()
+            .push(Route {
+                handler,
+                path,
+                method,
             });
     }
 
