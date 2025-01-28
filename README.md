@@ -2,6 +2,8 @@
 
 A simple, multi-threaded HTTP server implemented in Rust. This project is designed to handle basic HTTP requests and serve static files. This Projects was made for learning purpose so that I can get used to rust's Concurrency model and borrow system.
 
+This is my first time with rust so it might be horrible.
+
 ## Table of Contents
 
 - [Features](#features)
@@ -168,6 +170,7 @@ The server can be configured by modifying the `HTTPServer` initialization:
 
 - [ ] Improve error handling for request parsing and response generation.
 - [ ] Add POST/PUT body parsing.
+- [ ] Implement a proper shutdown instead of the default rust behavior.
 - [ ] Add support for HTTPS.
 - [ ] Implement a more efficient routing mechanism (using a trie data structure).
 - [ ] Add benchmarks to measure and improve performance.
