@@ -41,7 +41,7 @@ This is my first time with rust so it might be horrible.
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/rust-http-server.git
+   git clone https://github.com/yukiisen/stress.git
    ```
 
 2. Include the module in your project:
