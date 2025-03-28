@@ -2,6 +2,8 @@
 
 A simple, multi-threaded HTTP server implemented in Rust. This project is designed to handle basic HTTP requests and serve static files. This Projects was made for learning purpose so that I can get used to rust's Concurrency model and borrow system.
 
+Random info: this server comsumes only 2 megabytes of memory!
+
 This is my first time with rust so it might be horrible.
 
 ## Table of Contents
