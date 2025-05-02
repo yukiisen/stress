@@ -8,9 +8,11 @@ pub fn serve_static(path: &'static str) -> RouteHandler {
         let target = path;
         let mut filepath = target.join(&req.path.strip_prefix("/").unwrap_or_else(|| "/"));
 
-        if filepath == PathBuf::from("/") {
-            filepath = PathBuf::from("index.html");
+        if filepath == PathBuf::from("./") {
+            filepath = PathBuf::from("./index.html");
         }
+
+        dbg!(&filepath);
 
         if filepath.starts_with(&target) && filepath.exists() {
             let string_path = if let Some(path) = filepath.to_str() {
