@@ -66,7 +66,7 @@ impl ThreadPool {
 }
 
 struct Worker {
-    thread: JoinHandle<()>,
+    _thread: JoinHandle<()>,
 }
 
 impl Worker {
@@ -78,7 +78,7 @@ impl Worker {
     ) -> Self {
         let thread = thread::spawn(move || {
             let on_error = error_handler;
-            println!("I'm on!!");
+            dbg!("Thread is running!");
             loop {
                 let (stream, handlers) = recv.lock().unwrap().recv().unwrap();
                 let stream = Rc::new(RefCell::new(stream));
@@ -103,6 +103,6 @@ impl Worker {
             }
         });
 
-        Worker { thread }
+        Worker { _thread: thread }
     }
 }
