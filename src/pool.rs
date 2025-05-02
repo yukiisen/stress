@@ -78,6 +78,8 @@ impl Worker {
     ) -> Self {
         let thread = thread::spawn(move || {
             let on_error = error_handler;
+
+            #[cfg(debug_assertions)]
             dbg!("Thread is running!");
             loop {
                 let (stream, handlers) = recv.lock().unwrap().recv().unwrap();

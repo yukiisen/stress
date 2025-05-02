@@ -12,6 +12,7 @@ pub fn serve_static(path: &'static str) -> RouteHandler {
             filepath = PathBuf::from("./index.html");
         }
 
+        #[cfg(debug_assertions)]
         dbg!(&filepath);
 
         if filepath.starts_with(&target) && filepath.exists() {
