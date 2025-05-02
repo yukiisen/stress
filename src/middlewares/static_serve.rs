@@ -1,4 +1,4 @@
-use std::path;
+use std::path::{self, PathBuf};
 
 use crate::router::RouteHandler;
 
@@ -6,7 +6,11 @@ pub fn serve_static(path: &'static str) -> RouteHandler {
     let path = path::Path::new(path);
     Box::new(move |req, res| {
         let target = path;
-        let filepath = target.join(&req.path.strip_prefix("/").unwrap_or_else(|| "/"));
+        let mut filepath = target.join(&req.path.strip_prefix("/").unwrap_or_else(|| "/"));
+
+        if filepath == PathBuf::from("/") {
+            filepath = PathBuf::from("index.html");
+        }
 
         if filepath.starts_with(&target) && filepath.exists() {
             let string_path = if let Some(path) = filepath.to_str() {
