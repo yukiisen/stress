@@ -9,7 +9,7 @@ pub fn serve_static(path: &'static str) -> RouteHandler {
         let mut filepath = target.join(&req.path.strip_prefix("/").unwrap_or_else(|| "/"));
 
         if filepath == target {
-            filepath = PathBuf::from("./index.html");
+            filepath = target.join(PathBuf::from("./index.html"));
         }
 
         #[cfg(debug_assertions)]
